@@ -1,0 +1,58 @@
+{
+  "name": "electron-vue-vite",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo runbuild",
+    "postinstall": "turbo run stub",
+    "commit": "czg",
+    "prepare": "husky",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "lint": "pnpm dlx oxlint && eslint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.15.1",
+  "devDependencies": {
+      "@changesets/cli": "catalog:",
+      "@q-front-npm-configs/commitlint": "catalog:",
+      "@q-front-npm-configs/eslint": "catalog:",
+      "@q-front-npm-configs/prettier": "catalog:",
+      "@q-front-npm-configs/tailwind": "catalog:",
+      "@q-front-npm-configs/tsconfig": "catalog:",
+      "@types/node": "catalog:",
+      "@vitejs/plugin-vue": "catalog:",
+      "@vitejs/plugin-vue-jsx": "catalog:",
+      "husky": "catalog:",
+      "lint-staged": "catalog:",
+      "sass-migrator": "catalog:",
+      "tslib": "catalog:",
+      "turbo": "catalog:",
+      "typescript": "catalog:",
+      "vite": "catalog:"
+  },
+  "volta": {
+      "node": "22.19.0",
+      "pnpm": "10.15.1"
+  },
+  "pnpm": {
+      "peerDependencyRules": {
+          "allowedVersions": {
+              "eslint": "*",
+              "oxlint": "*"
+          }
+      },
+      "neverBuiltDependencies": [
+          "canvas",
+          "node-gyp"
+      ],
+      "overrides": {
+          "@sentry/cli": "catalog:",
+          "eslint": "catalog:",
+          "typescript": "catalog:"
+      }
+  }
+}
