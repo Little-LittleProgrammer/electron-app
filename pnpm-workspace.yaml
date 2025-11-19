@@ -165,7 +165,29 @@ catalog:
   "lighthouse": "^12.8.2"
 
   # electron
-  "electron": "^33.2.0"
+  "electron": "^39.2.2"
+  "electron-builder": "^26.0.12"
+
+  # 内部工具
+  "@q-front-npm-configs/eslint": "^3.0.0"
+  "@q-front-npm-configs/tsconfig": "^3.0.0"
+  "@q-front-npm-configs/commitlint": "^3.0.0"
+  "@q-front-npm-configs/vite-sentry": "^3.0.0"
+  "@q-front-npm-configs/rollup": "^3.0.0"
+  "@q-front-npm-configs/prettier": "^3.0.0"
+  "@q-front-npm-configs/tailwind": "^3.0.0"
+  "@q-front-npm/shared": "^3.0.0"
+  "@q-front-npm/styles": "^3.0.0"
+  "@q-front-npm/types": "^3.0.0"
+  "@q-front-npm-configs/vite": "^3.0.0"
+  "@q-front-npm/ai-hub": "^3.0.0"
+  "@q-front-npm/hooks": "^3.0.0"
+  "@q-front-npm/http": "^3.0.0"
+  "@q-front-npm/utils": "^3.0.0"
+  "@q-front-npm/vue3-antd-pc-ui": "^3.0.0"
+  "@q-front-npm/vue3-antd-pc-ui-nuxt": "^3.0.0"
+  "@q-front-npm/vue3-pc-ui": "^3.0.0"
+  "@q-front-npm/vue3-pc-ui-nuxt": "^3.0.0"
 
   # AI/MCP/三方平台 SDK
 
