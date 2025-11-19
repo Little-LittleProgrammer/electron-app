@@ -8,16 +8,16 @@
         "build": "vite build"
     },
     "devDependencies": {
-        "@q-front-npm/types": "workspace:*",
+        "@q-front-npm/types": "catalog:",
         "sass": "catalog:",
         "unplugin-vue-components": "catalog:",
-        "@types/crypto-js": "catalog:",
+        "@types/crypto-js": "catalog:"
     },
     "dependencies": {
-        "@q-front-npm-configs/vite": "workspace:*",
-        "@q-front-npm/hooks": "workspace:*",
-        "@q-front-npm/http": "workspace:*",
-        "@q-front-npm/utils": "workspace:*",
+        "@q-front-npm-configs/vite": "catalog:",
+        "@q-front-npm/hooks": "catalog:",
+        "@q-front-npm/http": "catalog:",
+        "@q-front-npm/utils": "catalog:",
         "@ant-design/icons-vue": "catalog:",
         "ant-design-vue": "catalog:",
         "axios": "catalog:",
