@@ -22,5 +22,7 @@
         "electron-builder": "catalog:"
     },
     "dependencies": {
+        "chokidar": "^3.5.3",
+        "node-fetch": "^2.7.0"
     }
 }

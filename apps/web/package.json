@@ -2,30 +2,21 @@
     "name": "electron-renderer",
     "version": "1.0.0",
     "private": true,
-    "main": "layers/main/dist/index.cjs",
+    "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
-    },
-    "devDependencies": {
-        "@q-front-npm/types": "catalog:",
-        "sass": "catalog:",
-        "unplugin-vue-components": "catalog:",
-        "@types/crypto-js": "catalog:"
+        "build": "vite build",
+        "preview": "vite preview"
     },
     "dependencies": {
-        "@q-front-npm-configs/vite": "catalog:",
-        "@q-front-npm/hooks": "catalog:",
-        "@q-front-npm/http": "catalog:",
-        "@q-front-npm/utils": "catalog:",
-        "@ant-design/icons-vue": "catalog:",
-        "ant-design-vue": "catalog:",
-        "axios": "catalog:",
-        "crypto-js": "catalog:",
-        "dayjs": "catalog:",
-        "lodash-es": "catalog:",
         "pinia": "catalog:",
         "vue": "catalog:",
         "vue-router": "catalog:"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-vue": "catalog:",
+        "sass": "catalog:",
+        "typescript": "catalog:",
+        "vite": "catalog:"
     }
 }
