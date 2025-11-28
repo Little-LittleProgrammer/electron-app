@@ -1,8 +1,12 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import { builtinModules } from 'module';
+
+const nodeBuiltins = [...builtinModules, ...builtinModules.map((mod) => `node:${mod}`)];
 
 export default defineConfig({
     build: {
+        target: 'node22',
         outDir: 'dist',
         lib: {
             entry: resolve(__dirname, 'src/index.ts'),
@@ -10,7 +14,7 @@ export default defineConfig({
             fileName: () => 'index.cjs',
         },
         rollupOptions: {
-            external: ['electron', 'path', 'fs', 'fs/promises'],
+            external: ['@electron-app/claude-agent', '@anthropic-ai/claude-agent-sdk', 'electron', ...nodeBuiltins],
         },
         emptyOutDir: true,
         sourcemap: false,

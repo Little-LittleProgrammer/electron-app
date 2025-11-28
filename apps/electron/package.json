@@ -17,6 +17,7 @@
     },
     "main": "layers/main/dist/index.cjs",
     "dependencies": {
+        "@electron-app/claude-agent": "workspace:*",
         "chokidar": "catalog:"
     },
     "devDependencies": {

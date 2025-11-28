@@ -17,6 +17,11 @@ const routes = [
         name: 'Demo',
         component: () => import('../views/Demo.vue'),
     },
+    {
+        path: '/ai-agent',
+        name: 'AIAgent',
+        component: () => import('../views/AIAgent.vue'),
+    },
 ];
 
 // Electron 环境使用 hash 模式，浏览器环境使用 history 模式

@@ -28,6 +28,14 @@
                     </div>
 
                     <div class="feature-item">
+                        <div class="feature-icon">🤖</div>
+                        <div class="feature-text">
+                            <h3>AI Agent</h3>
+                            <p>集成 Claude AI，支持智能对话和 MCP 配置</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
                         <div class="feature-icon">⚡</div>
                         <div class="feature-text">
                             <h3>独立打包</h3>
@@ -39,6 +47,7 @@
                 <div class="actions">
                     <button v-if="!isElectron" @click="goToDownload" class="btn btn-primary">下载桌面应用</button>
                     <button @click="goToDemo" class="btn btn-primary">进入功能演示</button>
+                    <button v-if="isElectron" @click="goToAIAgent" class="btn btn-ai">AI Agent 助手</button>
                 </div>
             </div>
         </div>
@@ -63,6 +72,10 @@ const goToDemo = () => {
 
 const goToDownload = () => {
     router.push('/download');
+};
+
+const goToAIAgent = () => {
+    router.push('/ai-agent');
 };
 </script>
 
@@ -160,7 +173,10 @@ const goToDownload = () => {
 }
 
 .actions {
-    text-align: center;
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
 .btn {
@@ -181,5 +197,15 @@ const goToDownload = () => {
 .btn-primary:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-ai {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}
+
+.btn-ai:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(240, 147, 251, 0.4);
 }
 </style>

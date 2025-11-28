@@ -1,11 +1,58 @@
-import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
-import { readFileSync, writeFileSync } from "fs";
+import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
 
 export class GlobalMcpConfig {
-    private basePath: string;
+    private configPath: string;
 
     constructor(basePath: string) {
-        this.basePath = basePath + '/.mcp.json';
+        this.configPath = join(basePath, '.mcp.json');
+        this.ensureConfigFile();
+    }
+
+    private ensureConfigFile() {
+        const dir = dirname(this.configPath);
+        if (!existsSync(dir)) {
+            mkdirSync(dir, { recursive: true });
+        }
+        if (!existsSync(this.configPath)) {
+            writeFileSync(
+                this.configPath,
+                JSON.stringify(
+                    {
+                        mcpServers: {},
+                    },
+                    null,
+                    2,
+                ),
+                'utf-8',
+            );
+        }
+    }
+
+    private readConfig(): { mcpServers: Record<string, McpServerConfig> } {
+        this.ensureConfigFile();
+        const raw = readFileSync(this.configPath, 'utf-8');
+        try {
+            const parsed = JSON.parse(raw || '{}');
+            return {
+                mcpServers: parsed.mcpServers || {},
+            };
+        } catch (error) {
+            // 如果文件损坏，重置为空结构避免崩溃
+            writeFileSync(
+                this.configPath,
+                JSON.stringify(
+                    {
+                        mcpServers: {},
+                    },
+                    null,
+                    2,
+                ),
+                'utf-8',
+            );
+            return { mcpServers: {} };
+        }
     }
 
     /**
@@ -22,17 +69,12 @@ export class GlobalMcpConfig {
      * }
      * ```
      */
-    getGlobalMcpConfig(name?:string): McpServerConfig | Record<string, McpServerConfig> | null {
-        let globalMcpConfig = readFileSync(this.basePath, 'utf-8');
-        if (globalMcpConfig) {
-            if (name) {
-                return JSON.parse(globalMcpConfig).mcpServers[name];
-            } else {
-                return JSON.parse(globalMcpConfig).mcpServers;
-            }
-        } else {
-            return null;
+    getGlobalMcpConfig(name?: string): McpServerConfig | Record<string, McpServerConfig> | null {
+        const { mcpServers } = this.readConfig();
+        if (name) {
+            return mcpServers[name] || null;
         }
+        return mcpServers;
     }
 
     /**
@@ -50,19 +92,11 @@ export class GlobalMcpConfig {
      * ```
      */
     setGlobalMcpConfig(name: string, config: McpServerConfig) {
-        let globalMcpConfigDataStr = readFileSync(this.basePath, 'utf-8');
-        if (globalMcpConfigDataStr) {
-            let globalMcpConfigData = JSON.parse(globalMcpConfigDataStr);
-            if (globalMcpConfigData.mcpServers) {
-                globalMcpConfigData.mcpServers = { ...globalMcpConfigData.mcpServers, [name]: config };
-            } else {
-                globalMcpConfigData.mcpServers = { [name]: config };
-            }
-            writeFileSync(this.basePath, JSON.stringify(globalMcpConfigData, null, 2));
-        } else {
-            writeFileSync(this.basePath, JSON.stringify({
-                "mcpServers": { [name]: config }
-            }, null, 2));
-        }
+        const configData = this.readConfig();
+        configData.mcpServers = {
+            ...configData.mcpServers,
+            [name]: config,
+        };
+        writeFileSync(this.configPath, JSON.stringify(configData, null, 2), 'utf-8');
     }
 }

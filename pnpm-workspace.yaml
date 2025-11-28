@@ -14,7 +14,7 @@ catalog:
     '@ant-design/icons-vue': ^7.0.1
 
     # ==================== Electron ====================
-    electron: 39.2.2
+    electron: ^39.2.2
     electron-builder: ^26.0.12
 
     # ==================== 构建工具 ====================

@@ -1,8 +1,11 @@
-import { query, type AgentDefinition, type McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
-import type { IAnthropicBaseOptions } from "./src/types";
-import { GlobalMcpConfig } from "./src/mcp";
-import { GlobalSubAgents } from "./src/subAgents";
-import { GlobalAgentCommands } from "./src/commands";
+import process from 'process';
+import { query, type AgentDefinition, type McpServerConfig } from '@anthropic-ai/claude-agent-sdk';
+import type { IAnthropicBaseOptions } from './src/types';
+import { GlobalMcpConfig } from './src/mcp';
+import { GlobalSubAgents } from './src/subAgents';
+import { GlobalAgentCommands } from './src/commands';
+
+export type ClaudeAgentQueryParams = Parameters<typeof query>[0];
 
 export class ClaudeAgent {
     private aiBaseOptions: IAnthropicBaseOptions;
@@ -29,10 +32,14 @@ export class ClaudeAgent {
         }
     }
 
-    query(prompt: string) {
-        return query({
-            prompt: prompt,
-        });
+    query(promptOrOptions: string | ClaudeAgentQueryParams): ReturnType<typeof query> {
+        if (typeof promptOrOptions === 'string') {
+            return query({
+                prompt: promptOrOptions,
+            });
+        }
+
+        return query(promptOrOptions);
     }
 
     getGlobalMcpConfig(name?: string): McpServerConfig | Record<string, McpServerConfig> | null {
@@ -42,7 +49,7 @@ export class ClaudeAgent {
     getGlobalSubAgents(name?: string): string | Record<string, string> | null {
         return this.globalSubAgents.getGlobalSubAgents(name);
     }
-    
+
     getGlobalCommands(name?: string): string | Record<string, string> | null {
         return this.globalCommands.getGlobalCommands(name);
     }
@@ -50,13 +57,12 @@ export class ClaudeAgent {
     setGlobalMcpConfig(name: string, config: McpServerConfig) {
         this.globalMcpConfig.setGlobalMcpConfig(name, config);
     }
-    
+
     setGlobalSubAgents(name: string, agent: AgentDefinition) {
         this.globalSubAgents.setGlobalSubAgent(name, agent);
     }
-    
+
     setGlobalCommands(name: string, command: string) {
         this.globalCommands.setGlobalCommands(name, command);
     }
-    
 }

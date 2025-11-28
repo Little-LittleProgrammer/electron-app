@@ -3,6 +3,7 @@ import { join } from 'path';
 import { readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { httpService } from './services/http';
+import { claudeAgentService } from './services/claude-agent';
 
 /**
  * Electron 主进程
@@ -81,6 +82,14 @@ function createWindow() {
  * 应用准备就绪
  */
 app.whenReady().then(() => {
+    // 初始化 Claude Agent
+    try {
+        claudeAgentService.initialize();
+        console.log('[Main] Claude Agent 服务初始化成功');
+    } catch (error) {
+        console.error('[Main] Claude Agent 服务初始化失败:', error);
+    }
+
     // 注册 IPC 处理器
     registerIpcHandlers();
 
@@ -168,6 +177,85 @@ function registerIpcHandlers() {
             return true;
         } catch (error: any) {
             throw new Error(`写入文件失败: ${error.message}`);
+        }
+    });
+
+    // ============ Claude Agent IPC 处理器 ============
+
+    // AI 查询
+    ipcMain.handle('claude-agent:query', async (event, prompt: string) => {
+        try {
+            const result = await claudeAgentService.query({ prompt });
+            return result;
+        } catch (error: any) {
+            throw new Error(error.message || 'AI 查询失败');
+        }
+    });
+
+    // 初始化 Agent（允许前端传入配置）
+    ipcMain.handle('claude-agent:initialize', async (event, options?: any) => {
+        try {
+            claudeAgentService.initialize(options);
+            return { success: true };
+        } catch (error: any) {
+            throw new Error(error.message || 'Agent 初始化失败');
+        }
+    });
+
+    // 获取 MCP 配置
+    ipcMain.handle('claude-agent:getMcpConfig', async (event, name?: string) => {
+        try {
+            return claudeAgentService.getGlobalMcpConfig(name);
+        } catch (error: any) {
+            throw new Error(error.message || '获取 MCP 配置失败');
+        }
+    });
+
+    // 设置 MCP 配置
+    ipcMain.handle('claude-agent:setMcpConfig', async (event, name: string, config: any) => {
+        try {
+            claudeAgentService.setGlobalMcpConfig(name, config);
+            return { success: true };
+        } catch (error: any) {
+            throw new Error(error.message || '设置 MCP 配置失败');
+        }
+    });
+
+    // 获取子代理
+    ipcMain.handle('claude-agent:getSubAgents', async (event, name?: string) => {
+        try {
+            return claudeAgentService.getGlobalSubAgents(name);
+        } catch (error: any) {
+            throw new Error(error.message || '获取子代理失败');
+        }
+    });
+
+    // 设置子代理
+    ipcMain.handle('claude-agent:setSubAgents', async (event, name: string, agentDef: any) => {
+        try {
+            claudeAgentService.setGlobalSubAgents(name, agentDef);
+            return { success: true };
+        } catch (error: any) {
+            throw new Error(error.message || '设置子代理失败');
+        }
+    });
+
+    // 获取命令
+    ipcMain.handle('claude-agent:getCommands', async (event, name?: string) => {
+        try {
+            return claudeAgentService.getGlobalCommands(name);
+        } catch (error: any) {
+            throw new Error(error.message || '获取命令失败');
+        }
+    });
+
+    // 设置命令
+    ipcMain.handle('claude-agent:setCommands', async (event, name: string, command: string) => {
+        try {
+            claudeAgentService.setGlobalCommands(name, command);
+            return { success: true };
+        } catch (error: any) {
+            throw new Error(error.message || '设置命令失败');
         }
     });
 }

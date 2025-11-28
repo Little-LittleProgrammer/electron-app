@@ -3,12 +3,12 @@
     "version": "1.0.0",
     "private": true,
     "type": "module",
-    "module": "./dist/index.mjs",
-    "main": "./dist/index.mjs",
-    "types": "./dist/index.d.ts",
     "scripts": {
         "build": "unbuild"
     },
+    "main": "./dist/index.mjs",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
     "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "catalog:"
     },

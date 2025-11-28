@@ -9,6 +9,8 @@
         "preview": "vite preview"
     },
     "dependencies": {
+        "@electron-app/shared": "workspace:*",
+        "@quantum-design/styles": "catalog:",
         "pinia": "catalog:",
         "vue": "catalog:",
         "vue-router": "catalog:"
@@ -17,7 +19,6 @@
         "@vitejs/plugin-vue": "catalog:",
         "sass": "catalog:",
         "typescript": "catalog:",
-        "vite": "catalog:",
-        "@electron-app/shared": "workspace:*"
+        "vite": "catalog:"
     }
 }
