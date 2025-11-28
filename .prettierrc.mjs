@@ -1,1 +1,1 @@
-export { default } from '@q-front-npm-configs/prettier';
+export { default } from '@quantum-design-configs/prettier';

@@ -1,0 +1,24 @@
+{
+    "name": "@electron-app/shared",
+    "version": "1.0.0",
+    "description": "共享工具库",
+    "type": "module",
+    "scripts": {
+        "build": "rollup -c",
+        "watch": "rollup -c -w"
+    },
+    "main": "./dist/shared.cjs.min.js",
+    "module": "./dist/shared.esm.min.js",
+    "types": "./dist/types/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/shared.d.ts",
+            "import": "./dist/shared.esm.min.js",
+            "require": "./dist/shared.cjs.min.js"
+        }
+    },
+    "devDependencies": {
+        "@quantum-design-configs/rollup": "catalog:",
+        "@quantum-design-configs/tsconfig": "catalog:"
+    }
+}

@@ -1,0 +1,18 @@
+{
+    "name": "@electron-app/claude-agent",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "module": "./dist/index.mjs",
+    "main": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "scripts": {
+        "build": "unbuild"
+    },
+    "dependencies": {
+        "@anthropic-ai/claude-agent-sdk": "catalog:"
+    },
+    "devDependencies": {
+        "unbuild": "catalog:"
+    }
+}

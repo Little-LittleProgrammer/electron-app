@@ -1,1 +1,1 @@
-export { default } from '@q-front-npm-configs/commitlint';
+export { default } from '@quantum-design-configs/commitlint';

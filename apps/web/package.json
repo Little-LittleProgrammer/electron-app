@@ -17,6 +17,7 @@
         "@vitejs/plugin-vue": "catalog:",
         "sass": "catalog:",
         "typescript": "catalog:",
-        "vite": "catalog:"
+        "vite": "catalog:",
+        "@electron-app/shared": "workspace:*"
     }
 }

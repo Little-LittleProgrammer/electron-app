@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router';
-import { isElectron } from '../utils/env';
+import { isElectron } from '@electron-app/shared';
 
 const routes = [
     {

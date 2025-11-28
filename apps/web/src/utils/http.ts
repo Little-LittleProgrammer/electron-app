@@ -1,4 +1,4 @@
-import { getElectronAPI, isElectron } from './env';
+import { getElectronAPI, isElectron } from '@electron-app/shared';
 
 /**
  * HTTP 请求配置
@@ -23,6 +23,64 @@ export interface HttpResponse<T = any> {
 }
 
 /**
+ * 请求拦截器
+ */
+export type RequestInterceptor = (config: HttpRequestConfig) => HttpRequestConfig | Promise<HttpRequestConfig>;
+
+/**
+ * 请求错误拦截器
+ */
+export type RequestErrorInterceptor = (error: any) => any;
+
+/**
+ * 响应拦截器
+ */
+export type ResponseInterceptor = <T = any>(response: HttpResponse<T>) => HttpResponse<T> | Promise<HttpResponse<T>>;
+
+/**
+ * 响应错误拦截器
+ */
+export type ResponseErrorInterceptor = (error: any) => any;
+
+/**
+ * 拦截器管理器
+ */
+class InterceptorManager<T> {
+    private interceptors: Array<T | null> = [];
+
+    /**
+     * 添加拦截器
+     */
+    use(interceptor: T): number {
+        this.interceptors.push(interceptor);
+        return this.interceptors.length - 1;
+    }
+
+    /**
+     * 移除拦截器
+     */
+    eject(id: number): void {
+        if (this.interceptors[id]) {
+            this.interceptors[id] = null;
+        }
+    }
+
+    /**
+     * 清空所有拦截器
+     */
+    clear(): void {
+        this.interceptors = [];
+    }
+
+    /**
+     * 获取所有有效的拦截器
+     */
+    getInterceptors(): T[] {
+        return this.interceptors.filter((interceptor): interceptor is T => interceptor !== null);
+    }
+}
+
+/**
  * HTTP 请求类
  * 在 Electron 环境中通过 IPC 调用 Node.js 进行请求
  * 在浏览器环境中使用 fetch API
@@ -31,6 +89,18 @@ class HttpClient {
     private baseURL: string = '';
     private defaultHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
+    };
+
+    // 拦截器
+    public interceptors = {
+        request: {
+            fulfilled: new InterceptorManager<RequestInterceptor>(),
+            rejected: new InterceptorManager<RequestErrorInterceptor>(),
+        },
+        response: {
+            fulfilled: new InterceptorManager<ResponseInterceptor>(),
+            rejected: new InterceptorManager<ResponseErrorInterceptor>(),
+        },
     };
 
     /**
@@ -51,6 +121,59 @@ class HttpClient {
      * 发送请求
      */
     async request<T = any>(config: HttpRequestConfig): Promise<HttpResponse<T>> {
+        try {
+            // 执行请求拦截器
+            let requestConfig = { ...config };
+            const requestInterceptors = this.interceptors.request.fulfilled.getInterceptors();
+
+            for (const interceptor of requestInterceptors) {
+                requestConfig = await interceptor(requestConfig);
+            }
+
+            // 执行实际请求
+            const response = await this.executeRequest<T>(requestConfig);
+
+            // 执行响应拦截器
+            let finalResponse = response;
+            const responseInterceptors = this.interceptors.response.fulfilled.getInterceptors();
+
+            for (const interceptor of responseInterceptors) {
+                finalResponse = await interceptor(finalResponse);
+            }
+
+            return finalResponse;
+        } catch (error) {
+            // 执行请求错误拦截器
+            const requestErrorInterceptors = this.interceptors.request.rejected.getInterceptors();
+            let currentError = error;
+
+            for (const interceptor of requestErrorInterceptors) {
+                try {
+                    currentError = await interceptor(currentError);
+                } catch (e) {
+                    currentError = e;
+                }
+            }
+
+            // 执行响应错误拦截器
+            const responseErrorInterceptors = this.interceptors.response.rejected.getInterceptors();
+
+            for (const interceptor of responseErrorInterceptors) {
+                try {
+                    currentError = await interceptor(currentError);
+                } catch (e) {
+                    currentError = e;
+                }
+            }
+
+            throw currentError;
+        }
+    }
+
+    /**
+     * 执行实际的 HTTP 请求
+     */
+    private async executeRequest<T = any>(config: HttpRequestConfig): Promise<HttpResponse<T>> {
         const url = this.buildURL(config.url, config.params);
         const method = config.method || 'GET';
         const headers = { ...this.defaultHeaders, ...config.headers };

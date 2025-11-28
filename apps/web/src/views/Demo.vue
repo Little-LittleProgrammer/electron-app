@@ -145,7 +145,7 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { http } from '../utils/http';
-import { getEnvironment, getElectronAPI, isElectron as checkIsElectron } from '../utils/env';
+import { getEnvironment, getElectronAPI, isElectron as checkIsElectron } from '@electron-app/shared';
 
 const router = useRouter();
 const isElectron = computed(() => checkIsElectron());

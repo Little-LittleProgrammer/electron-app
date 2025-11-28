@@ -48,8 +48,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { getEnvironment } from '../utils/env';
-import { isElectron as isElectronUtils } from '../utils/env';
+import { getEnvironment, isElectron as isElectronUtils } from '@electron-app/shared';
 
 const isElectron = computed(() => isElectronUtils());
 

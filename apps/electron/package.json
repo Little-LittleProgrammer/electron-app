@@ -2,7 +2,6 @@
     "name": "electron-app",
     "version": "1.0.0",
     "private": true,
-    "main": "layers/main/dist/index.cjs",
     "scripts": {
         "dev": "node scripts/watch.js",
         "build": "npm run build:main && npm run build:preload",
@@ -16,13 +15,13 @@
         "typecheck:preload": "tsc --noEmit -p layers/preload/tsconfig.json",
         "typecheck": "npm run typecheck:main && npm run typecheck:preload"
     },
+    "main": "layers/main/dist/index.cjs",
+    "dependencies": {
+        "chokidar": "catalog:"
+    },
     "devDependencies": {
         "cross-env": "catalog:",
         "electron": "catalog:",
         "electron-builder": "catalog:"
-    },
-    "dependencies": {
-        "chokidar": "^3.5.3",
-        "node-fetch": "^2.7.0"
     }
 }
