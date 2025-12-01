@@ -145,21 +145,18 @@
                 <div class="border-t border-gray-200 bg-white p-4">
                     <div class="flex space-x-4">
                         <input v-model="userInput" @keyup.enter="sendMessage" type="text" :disabled="isLoading" class="flex-1 rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" placeholder="输入你的问题..." />
-                        <button @click="sendMessage" :disabled="isLoading || !userInput.trim()" class="flex items-center rounded-lg bg-blue-600 px-8 py-3 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400">
-                            <svg v-if="!isLoading" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                            </svg>
-                            <span v-if="!isLoading">发送</span>
-                            <span v-else>发送中...</span>
-                        </button>
+                        <div class="flex space-x-2">
+                            <button @click="clearMessages" class="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-300">清空对话</button>
+                            <button @click="sendMessage" :disabled="isLoading || !userInput.trim()" class="flex items-center rounded-lg bg-blue-600 px-8 py-3 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400">
+                                <svg v-if="!isLoading" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                                <span v-if="!isLoading">发送</span>
+                                <span v-else>发送中...</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- 功能按钮区域 -->
-            <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                <button @click="clearMessages" class="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-300">清空对话</button>
-                <button @click="showSubAgents" class="rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700">查看子代理</button>
             </div>
 
             <!-- 错误提示 -->
