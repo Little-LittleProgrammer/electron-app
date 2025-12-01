@@ -27,7 +27,7 @@ export class ClaudeAgent {
     init() {
         if (this.aiBaseOptions.baseURL && this.aiBaseOptions.apiKey) {
             process.env.ANTHROPIC_BASE_URL = this.aiBaseOptions.baseURL;
-            process.env.ANTHROPIC_API_KEY = this.aiBaseOptions.apiKey;
+            process.env.ANTHROPIC_AUTH_TOKEN = this.aiBaseOptions.apiKey;
             process.env.ANTHROPIC_MODEL = this.aiBaseOptions.model;
         }
     }

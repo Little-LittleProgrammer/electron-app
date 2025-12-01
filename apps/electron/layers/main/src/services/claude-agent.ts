@@ -3,6 +3,8 @@ import { app } from 'electron';
 import { join } from 'path';
 import type { IAnthropicBaseOptions } from '@electron-app/claude-agent/src/types';
 
+export const DEFAULT_PATH = join(app.getPath('userData'), 'claude-agent');
+
 /**
  * Claude Agent 服务
  * 用于管理 AI Agent 实例
@@ -15,13 +17,13 @@ class ClaudeAgentService {
      */
     initialize(options?: Partial<IAnthropicBaseOptions>) {
         // 使用用户数据目录作为基础路径
-        const basePath = options?.basePath || join(app.getPath('userData'), 'claude-agent');
+        const basePath = options?.basePath || DEFAULT_PATH;
 
         const defaultOptions: IAnthropicBaseOptions = {
             basePath,
-            baseURL: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
+            baseURL: process.env.ANTHROPIC_BASE_URL || 'https://api.deepseek.com/anthropic',
             apiKey: process.env.ANTHROPIC_API_KEY || '',
-            model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
+            model: process.env.ANTHROPIC_MODEL || 'deepseek-chat',
             ...options,
         };
 
@@ -40,25 +42,28 @@ class ClaudeAgentService {
     }
 
     /**
-     * 查询 AI（支持字符串 prompt 或完整配置）
+     * 查询 AI（支持字符串 prompt 或完整配置），默认返回 SDK 的流式结果
      */
-    async query(promptOrOptions: string | ClaudeAgentQueryParams) {
+    query(promptOrOptions: string | ClaudeAgentQueryParams) {
         const agent = this.getAgent();
-        const stream = agent.query(promptOrOptions) as AsyncIterable<any>;
-        let finalResult: any = null;
+        const baseOptions: ClaudeAgentQueryParams = typeof promptOrOptions === 'string' ? { prompt: promptOrOptions } : { ...promptOrOptions };
 
-        for await (const message of stream) {
-            if (message.type === 'result') {
-                console.log('message', message);
-                finalResult = message.result;
-            }
+        const cwd = baseOptions.options?.cwd || DEFAULT_PATH;
+        const mcpServers = agent.getGlobalMcpConfig();
+
+        const options: ClaudeAgentQueryParams['options'] = {
+            ...baseOptions.options,
+            cwd,
+            allowDangerouslySkipPermissions: true,
+        };
+        if (mcpServers) {
+            options.mcpServers = { ...mcpServers, ...baseOptions.options?.mcpServers };
         }
 
-        if (finalResult === null) {
-            throw new Error('Claude Agent 未返回 result 消息');
-        }
-
-        return finalResult;
+        return agent.query({
+            ...baseOptions,
+            options,
+        });
     }
 
     /**

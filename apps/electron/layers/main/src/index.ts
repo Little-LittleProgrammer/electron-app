@@ -1,15 +1,45 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import type { IpcMainEvent } from 'electron';
 import { join } from 'path';
 import { readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
+import type { ClaudeAgentQueryParams } from '@electron-app/claude-agent';
 import { httpService } from './services/http';
-import { claudeAgentService } from './services/claude-agent';
+import { claudeAgentService, DEFAULT_PATH } from './services/claude-agent';
+import { readUserEnvConfig, writeUserEnvConfig, type UserEnvConfig } from './services/user-config';
+import { readMcpFile, writeMcpFile } from './services/mcp-file';
 
 /**
  * Electron 主进程
  */
 
 let mainWindow: BrowserWindow | null = null;
+const activeClaudeAgentStreams = new Map<string, { cancelled: boolean }>();
+const USER_ENV_FILE = join(DEFAULT_PATH, '.env.json');
+
+const applyConfigToEnv = (config: UserEnvConfig) => {
+    if (config.baseURL) {
+        process.env.ANTHROPIC_BASE_URL = config.baseURL;
+    }
+    if (config.apiKey) {
+        process.env.ANTHROPIC_AUTH_TOKEN = config.apiKey;
+    }
+    if (config.model) {
+        process.env.ANTHROPIC_MODEL = config.model;
+    }
+};
+
+const hydrateUserEnvConfig = async () => {
+    try {
+        const saved = await readUserEnvConfig(USER_ENV_FILE);
+        if (Object.keys(saved).length > 0) {
+            applyConfigToEnv(saved);
+            console.log('[Main] 已加载用户配置:', USER_ENV_FILE);
+        }
+    } catch (error) {
+        console.warn('[Main] 读取用户配置失败:', error);
+    }
+};
 
 /**
  * 创建主窗口
@@ -81,7 +111,9 @@ function createWindow() {
 /**
  * 应用准备就绪
  */
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+    await hydrateUserEnvConfig();
+
     // 初始化 Claude Agent
     try {
         claudeAgentService.initialize();
@@ -180,15 +212,73 @@ function registerIpcHandlers() {
         }
     });
 
+    ipcMain.handle('user-config:get', async () => {
+        try {
+            return await readUserEnvConfig(USER_ENV_FILE);
+        } catch (error: any) {
+            throw new Error(error.message || '读取用户配置失败');
+        }
+    });
+
+    ipcMain.handle('user-config:save', async (_event, payload: UserEnvConfig) => {
+        try {
+            const saved = await writeUserEnvConfig(USER_ENV_FILE, payload || {});
+            applyConfigToEnv(saved);
+            return { success: true, config: saved, path: USER_ENV_FILE };
+        } catch (error: any) {
+            throw new Error(error.message || '保存用户配置失败');
+        }
+    });
+
+    ipcMain.handle('user-config:getMcpFile', async () => {
+        try {
+            return await readMcpFile();
+        } catch (error: any) {
+            throw new Error(error.message || '读取 .mcp.json 失败');
+        }
+    });
+
+    ipcMain.handle('user-config:saveMcpFile', async (_event, content: string) => {
+        try {
+            return await writeMcpFile(content);
+        } catch (error: any) {
+            throw new Error(error.message || '保存 .mcp.json 失败');
+        }
+    });
+
     // ============ Claude Agent IPC 处理器 ============
 
     // AI 查询
-    ipcMain.handle('claude-agent:query', async (event, prompt: string) => {
-        try {
-            const result = await claudeAgentService.query({ prompt });
-            return result;
-        } catch (error: any) {
-            throw new Error(error.message || 'AI 查询失败');
+    // ipcMain.handle('claude-agent:query', async (event, promptOrOptions: string | ClaudeAgentQueryParams) => {
+    //     try {
+    //         const stream = claudeAgentService.query(promptOrOptions);
+    //         await stream.setPermissionMode('bypassPermissions');
+    //         let finalResult: any = null;
+
+    //         for await (const message of stream) {
+    //             if (message.type === 'result') {
+    //                 finalResult = message.result;
+    //             }
+    //         }
+
+    //         if (finalResult === null) {
+    //             throw new Error('Claude Agent 未返回 result 消息');
+    //         }
+
+    //         return finalResult;
+    //     } catch (error: any) {
+    //         throw new Error(error.message || 'AI 查询失败');
+    //     }
+    // });
+
+    ipcMain.on('claude-agent:query:start', (event, payload) => {
+        void handleClaudeAgentStream(event, payload);
+    });
+
+    ipcMain.on('claude-agent:query:cancel', (_event, { requestId }: { requestId: string }) => {
+        const streamState = activeClaudeAgentStreams.get(requestId);
+        if (streamState) {
+            streamState.cancelled = true;
         }
     });
 
@@ -258,4 +348,46 @@ function registerIpcHandlers() {
             throw new Error(error.message || '设置命令失败');
         }
     });
+}
+
+type ClaudeAgentStreamPayload = {
+    requestId: string;
+    payload: string | ClaudeAgentQueryParams;
+};
+
+async function handleClaudeAgentStream(event: IpcMainEvent, payload: ClaudeAgentStreamPayload) {
+    if (!payload?.requestId) {
+        return;
+    }
+
+    const { requestId, payload: promptOrOptions } = payload;
+    const target = event.sender;
+    const streamState = { cancelled: false };
+
+    activeClaudeAgentStreams.set(requestId, streamState);
+
+    try {
+        const stream = claudeAgentService.query(promptOrOptions);
+        stream.setPermissionMode('bypassPermissions');
+
+        for await (const message of stream) {
+            if (streamState.cancelled || target.isDestroyed()) {
+                break;
+            }
+            target.send('claude-agent:query:message', { requestId, message });
+        }
+
+        if (!target.isDestroyed()) {
+            target.send('claude-agent:query:done', { requestId });
+        }
+    } catch (error: any) {
+        if (!target.isDestroyed()) {
+            target.send('claude-agent:query:error', {
+                requestId,
+                error: error.message || 'AI 查询失败',
+            });
+        }
+    } finally {
+        activeClaudeAgentStreams.delete(requestId);
+    }
 }

@@ -63,6 +63,9 @@ catalogs:
     pinia:
       specifier: ^3.0.3
       version: 3.0.4
+    rollup:
+      specifier: ^4.46.2
+      version: 4.53.3
     sass:
       specifier: ^1.83.0
       version: 1.94.2
@@ -214,6 +217,9 @@ importers:
       '@quantum-design-configs/tsconfig':
         specifier: 'catalog:'
         version: 3.0.0
+      rollup:
+        specifier: 'catalog:'
+        version: 4.53.3
 
 packages:
 

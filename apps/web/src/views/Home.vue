@@ -47,7 +47,7 @@
                 <div class="actions">
                     <button v-if="!isElectron" @click="goToDownload" class="btn btn-primary">下载桌面应用</button>
                     <button @click="goToDemo" class="btn btn-primary">进入功能演示</button>
-                    <button v-if="isElectron" @click="goToAIAgent" class="btn btn-ai">AI Agent 助手</button>
+                    <button @click="goToAIAgent" class="btn btn-ai">AI Agent 助手</button>
                 </div>
             </div>
         </div>
@@ -75,6 +75,10 @@ const goToDownload = () => {
 };
 
 const goToAIAgent = () => {
+    if (!isElectron.value) {
+        goToDownload();
+        return;
+    }
     router.push('/ai-agent');
 };
 </script>

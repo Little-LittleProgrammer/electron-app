@@ -4,6 +4,7 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "dev": "unbuild --watch",
         "build": "unbuild"
     },
     "main": "./dist/index.mjs",

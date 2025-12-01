@@ -69,6 +69,9 @@ export class GlobalMcpConfig {
      * }
      * ```
      */
+    // 函数重载签名
+    getGlobalMcpConfig(name: string): McpServerConfig | null;
+    getGlobalMcpConfig(): Record<string, McpServerConfig> | null;
     getGlobalMcpConfig(name?: string): McpServerConfig | Record<string, McpServerConfig> | null {
         const { mcpServers } = this.readConfig();
         if (name) {

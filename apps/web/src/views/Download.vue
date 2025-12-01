@@ -3,15 +3,15 @@
         <div class="container">
             <div class="icon">
                 <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
-                    <circle cx="60" cy="60" r="60" fill="#667eea" opacity="0.1"  />
-                    <path d="M60 30v45m0 0l-15-15m15 15l15-15" stroke="#667eea" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"  />
-                    <path d="M35 75v10a5 5 0 005 5h40a5 5 0 005-5V75" stroke="#667eea" stroke-width="6" stroke-linecap="round"  />
+                    <circle cx="60" cy="60" r="60" fill="#667eea" opacity="0.1" />
+                    <path d="M60 30v45m0 0l-15-15m15 15l15-15" stroke="#667eea" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M35 75v10a5 5 0 005 5h40a5 5 0 005-5V75" stroke="#667eea" stroke-width="6" stroke-linecap="round" />
                 </svg>
             </div>
 
             <h1>下载桌面应用</h1>
             <p class="subtitle">
-                检测到您正在使用浏览器访问，为了获得完整功能体验，<br  />
+                检测到您正在使用浏览器访问，为了获得完整功能体验，<br />
                 请下载我们的桌面应用程序。
             </p>
 
@@ -29,7 +29,7 @@
                 <div class="feature">
                     <div class="feature-icon">🚀</div>
                     <h3>完整功能</h3>
-                    <p>解锁所有高级功能</p>
+                    <p>解锁所有高级功能(AI Agent 助手)</p>
                 </div>
             </div>
 
