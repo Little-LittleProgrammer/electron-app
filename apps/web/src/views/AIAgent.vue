@@ -41,7 +41,7 @@
                     </div>
 
                     <div v-for="entry in timelineEntries" :key="entry.id" class="mb-4">
-                        <template v-if="entry.kind === 'chat'">
+                        <template v-if="entry.type === 'user'">
                             <div :class="['flex', entry.role === 'user' ? 'justify-end' : 'justify-start']">
                                 <div :class="['max-w-3xl rounded-lg px-4 py-3 shadow', entry.role === 'user' ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white text-gray-800']">
                                     <div class="mb-1 flex items-center">
@@ -54,9 +54,23 @@
                                 </div>
                             </div>
                         </template>
+                        <template v-else-if="entry.type === 'assistant'">
+                            <details class="group rounded-lg border border-blue-200 bg-white p-4 shadow-sm transition hover:border-blue-300">
+                                <summary class="flex cursor-pointer list-none items-center justify-between">
+                                    <div class="flex flex-col">
+                                        <span class="text-sm font-semibold text-blue-700">AI 助手</span>
+                                        <span class="text-xs text-gray-500">{{ entry.content.slice(0, 50) }}{{ entry.content.length > 50 ? '...' : '' }}</span>
+                                    </div>
+                                    <span class="text-xs text-gray-400">{{ entry.timestamp }}</span>
+                                </summary>
+                                <div class="mt-3 whitespace-pre-wrap text-gray-700">
+                                    {{ entry.content }}
+                                </div>
+                            </details>
+                        </template>
                         <template v-else>
                             <div class="max-w-3xl">
-                                <details v-if="entry.event.type === 'thinking'" class="group rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 shadow-sm transition hover:border-gray-300">
+                                <details v-if="entry.type === 'thinking'" class="group rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 shadow-sm transition hover:border-gray-300">
                                     <summary class="flex cursor-pointer list-none items-center justify-between text-gray-500">
                                         <span class="flex items-center space-x-2">
                                             <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,52 +78,52 @@
                                             </svg>
                                             <span>思考过程</span>
                                         </span>
-                                        <span class="text-xs text-gray-400">{{ entry.event.timestamp }}</span>
+                                        <span class="text-xs text-gray-400">{{ entry.timestamp }}</span>
                                     </summary>
                                     <div class="mt-3 whitespace-pre-wrap text-gray-600">
-                                        {{ entry.event.content || '（空）' }}
+                                        {{ entry.content || '（空）' }}
                                     </div>
                                 </details>
 
-                                <details v-else-if="entry.event.type === 'tool_call'" class="group rounded-lg border border-amber-200 bg-white p-4 shadow-sm transition hover:border-amber-300">
+                                <details v-else-if="entry.type === 'tool_call'" class="group rounded-lg border border-amber-200 bg-white p-4 shadow-sm transition hover:border-amber-300">
                                     <summary class="flex cursor-pointer list-none items-center justify-between">
                                         <div class="flex flex-col">
-                                            <span class="text-sm font-semibold text-amber-700">{{ entry.event.title }}</span>
-                                            <span v-if="entry.event.subtitle" class="text-xs text-gray-500">{{ entry.event.subtitle }}</span>
+                                            <span class="text-sm font-semibold text-amber-700">{{ entry.title }}</span>
+                                            <span v-if="entry.subtitle" class="text-xs text-gray-500">{{ entry.subtitle }}</span>
                                         </div>
-                                        <span class="text-xs text-gray-400">{{ entry.event.timestamp }}</span>
+                                        <span class="text-xs text-gray-400">{{ entry.timestamp }}</span>
                                     </summary>
                                     <div class="mt-3 space-y-3">
                                         <div>
                                             <div class="text-xs font-semibold uppercase text-gray-500">请求参数</div>
-                                            <pre class="mt-1 overflow-x-auto rounded bg-gray-50 p-3 text-xs text-gray-700">{{ entry.event.content }}</pre>
+                                            <pre class="mt-1 overflow-x-auto rounded bg-gray-50 p-3 text-xs text-gray-700">{{ entry.content }}</pre>
                                         </div>
-                                        <div v-if="entry.event.toolResult">
+                                        <div v-if="entry.toolResult">
                                             <div class="text-xs font-semibold uppercase text-gray-500">调用结果</div>
-                                            <pre class="mt-1 overflow-x-auto rounded bg-green-50 p-3 text-xs text-gray-800">{{ entry.event.toolResult }}</pre>
+                                            <pre class="mt-1 overflow-x-auto rounded bg-green-50 p-3 text-xs text-gray-800">{{ entry.toolResult }}</pre>
                                         </div>
                                     </div>
                                 </details>
 
-                                <details v-else-if="entry.event.type === 'system'" class="group rounded-lg border border-blue-200 bg-white p-4 text-sm text-gray-700 shadow-sm transition hover:border-blue-300">
+                                <details v-else-if="entry.type === 'system'" class="group rounded-lg border border-blue-200 bg-white p-4 text-sm text-gray-700 shadow-sm transition hover:border-blue-300">
                                     <summary class="flex cursor-pointer list-none items-center justify-between">
                                         <div class="flex flex-col">
-                                            <span class="text-sm font-semibold text-blue-700">{{ entry.event.title }}</span>
-                                            <span v-if="entry.event.subtitle" class="text-xs text-gray-500">{{ entry.event.subtitle }}</span>
+                                            <span class="text-sm font-semibold text-blue-700">{{ entry.title }}</span>
+                                            <span v-if="entry.subtitle" class="text-xs text-gray-500">{{ entry.subtitle }}</span>
                                         </div>
-                                        <span class="text-xs text-gray-400">{{ entry.event.timestamp }}</span>
+                                        <span class="text-xs text-gray-400">{{ entry.timestamp }}</span>
                                     </summary>
                                     <div class="mt-3 whitespace-pre-wrap text-gray-700">
-                                        {{ entry.event.content }}
+                                        {{ entry.content }}
                                     </div>
                                 </details>
 
                                 <div v-else class="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-700 shadow-sm">
                                     <div class="mb-1 flex items-center justify-between text-xs text-gray-500">
-                                        <span>{{ entry.event.title }}</span>
-                                        <span>{{ entry.event.timestamp }}</span>
+                                        <span>{{ entry.title }}</span>
+                                        <span>{{ entry.timestamp }}</span>
                                     </div>
-                                    <p class="whitespace-pre-wrap">{{ entry.event.content }}</p>
+                                    <p class="whitespace-pre-wrap">{{ entry.content }}</p>
                                 </div>
                             </div>
                         </template>
@@ -167,44 +181,21 @@ import { ref, nextTick, computed, onMounted } from 'vue';
 import AgentConfigPanel from '@/components/AgentConfigPanel.vue';
 import type { AgentConfig, PanelSystemEvent } from '@/types/agent';
 
-interface Message {
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: string;
-    createdAt: number;
-}
+type AgentEventType = 'user' | 'assistant' | 'system' | 'thinking' | 'tool_call' | 'tool_result' | 'result';
 
-type AgentEventType = 'user' | 'system' | 'thinking' | 'tool_call' | 'tool_result' | 'result';
-
-interface AgentEventEntry {
+interface TimelineEntry {
     id: string;
     type: AgentEventType;
-    title: string;
+    title?: string;
     content: string;
     timestamp: string;
     createdAt: number;
+    role?: 'user' | 'assistant';
     subtitle?: string;
     raw?: string;
     metadata?: Record<string, any>;
     toolResult?: string;
 }
-
-type TimelineEntry =
-    | {
-          id: string;
-          kind: 'chat';
-          role: Message['role'];
-          content: string;
-          timestamp: string;
-          createdAt: number;
-      }
-    | {
-          id: string;
-          kind: 'event';
-          event: AgentEventEntry;
-          createdAt: number;
-      };
 
 // 状态
 const config = ref<AgentConfig>({
@@ -213,8 +204,7 @@ const config = ref<AgentConfig>({
     model: 'deepseek-chat',
 });
 
-const messages = ref<Message[]>([]);
-const eventLog = ref<AgentEventEntry[]>([]);
+const timeline = ref<TimelineEntry[]>([]);
 const userInput = ref('');
 const isLoading = ref(false);
 const isInitializing = ref(false);
@@ -306,23 +296,7 @@ const loadSavedAgentConfig = async () => {
     }
 };
 
-const timelineEntries = computed<TimelineEntry[]>(() => {
-    const chats: TimelineEntry[] = messages.value.map((msg) => ({
-        id: msg.id,
-        kind: 'chat',
-        role: msg.role,
-        content: msg.content,
-        timestamp: msg.timestamp,
-        createdAt: msg.createdAt,
-    }));
-    const events: TimelineEntry[] = eventLog.value.map((event) => ({
-        id: event.id,
-        kind: 'event',
-        event,
-        createdAt: event.createdAt,
-    }));
-    return [...chats, ...events].sort((a, b) => a.createdAt - b.createdAt);
-});
+const timelineEntries = computed<TimelineEntry[]>(() => [...timeline.value].sort((a, b) => a.createdAt - b.createdAt));
 
 const scrollMessagesToBottom = () => {
     nextTick(() => {
@@ -337,7 +311,7 @@ onMounted(() => {
 });
 
 const addEventEntry = (type: AgentEventType, title: string, content: string, options?: { subtitle?: string; raw?: any; metadata?: Record<string, any>; toolResult?: string }) => {
-    const entry: AgentEventEntry = {
+    const entry: TimelineEntry = {
         id: createId(),
         type,
         title,
@@ -349,7 +323,7 @@ const addEventEntry = (type: AgentEventType, title: string, content: string, opt
         metadata: options?.metadata,
         toolResult: options?.toolResult,
     };
-    eventLog.value.push(entry);
+    timeline.value.push(entry);
     scrollMessagesToBottom();
     return entry;
 };
@@ -369,20 +343,17 @@ const resetAssistantStreamState = () => {
 const addMessage = (role: 'user' | 'assistant', content: string, newMessage: boolean = true) => {
     const timestamp = formatTimestamp();
     const createdAt = Date.now();
-    if (newMessage || messages.value.length === 0) {
-        messages.value.push({
-            id: createId(),
-            role,
-            content,
-            timestamp,
-            createdAt,
-        });
-    } else if (messages.value[messages.value.length - 1]?.role === role) {
-        messages.value[messages.value.length - 1].content += content;
-        messages.value[messages.value.length - 1].timestamp = timestamp;
+    const lastEntry = timeline.value[timeline.value.length - 1];
+    const canAppendLast = !newMessage && lastEntry && lastEntry.type === role && lastEntry.role === role;
+
+    if (canAppendLast) {
+        lastEntry.content += content;
+        lastEntry.timestamp = timestamp;
+        lastEntry.createdAt = createdAt;
     } else {
-        messages.value.push({
+        timeline.value.push({
             id: createId(),
+            type: role,
             role,
             content,
             timestamp,
@@ -395,7 +366,7 @@ const addMessage = (role: 'user' | 'assistant', content: string, newMessage: boo
 
 const appendAssistantText = (text: string) => {
     if (!text) return;
-    const lastMessage = messages.value[messages.value.length - 1];
+    const lastMessage = timeline.value[timeline.value.length - 1];
     const shouldStartNew = !assistantMessageActive || !lastMessage || lastMessage.role !== 'assistant';
     addMessage('assistant', text, shouldStartNew);
     assistantMessageActive = true;
@@ -426,7 +397,7 @@ const handleUserEvent = (payload: any) => {
             const toolContent = typeof item.content === 'string' ? item.content : safeStringify(item.content ?? {});
             const toolUseId = item.tool_use_id;
             if (toolUseId) {
-                const target = [...eventLog.value].reverse().find((event) => event.metadata?.toolUseId === toolUseId);
+                const target = [...timeline.value].reverse().find((event) => event.metadata?.toolUseId === toolUseId);
                 if (target) {
                     target.toolResult = toolContent;
                     target.timestamp = formatTimestamp();
@@ -537,27 +508,9 @@ const sendMessage = async () => {
 
 // 清空对话
 const clearMessages = () => {
-    messages.value = [];
-    eventLog.value = [];
+    timeline.value = [];
     error.value = '';
     resetAssistantStreamState();
-};
-
-// 查看 MCP 配置
-const showMcpConfig = async () => {
-    try {
-        if (!window.electronAPI) {
-            throw new Error('Electron API 未加载');
-        }
-
-        const mcpConfig = await window.electronAPI.claudeAgent.getMcpConfig();
-        const configText = JSON.stringify(mcpConfig, null, 2);
-        addMessage('assistant', `MCP 配置：\n${configText}`);
-        addEventEntry('system', 'MCP 配置', configText, { raw: mcpConfig });
-    } catch (err: any) {
-        error.value = err.message || '获取 MCP 配置失败';
-        addEventEntry('system', '获取 MCP 配置失败', error.value, { raw: err });
-    }
 };
 
 // 查看子代理
