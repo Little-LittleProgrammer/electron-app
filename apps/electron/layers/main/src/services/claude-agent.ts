@@ -2,6 +2,7 @@ import { ClaudeAgent, type ClaudeAgentQueryParams } from '@electron-app/claude-a
 import { app } from 'electron';
 import { join } from 'path';
 import type { IAnthropicBaseOptions } from '@electron-app/claude-agent/src/types';
+import { logger } from './logger';
 
 export const DEFAULT_PATH = join(app.getPath('userData'), 'claude-agent');
 
@@ -45,25 +46,104 @@ class ClaudeAgentService {
      * 查询 AI（支持字符串 prompt 或完整配置），默认返回 SDK 的流式结果
      */
     query(promptOrOptions: string | ClaudeAgentQueryParams) {
-        const agent = this.getAgent();
-        const baseOptions: ClaudeAgentQueryParams = typeof promptOrOptions === 'string' ? { prompt: promptOrOptions } : { ...promptOrOptions };
+        try {
+            const agent = this.getAgent();
+            const baseOptions: ClaudeAgentQueryParams = typeof promptOrOptions === 'string' ? { prompt: promptOrOptions } : { ...promptOrOptions };
 
-        const cwd = baseOptions.options?.cwd || DEFAULT_PATH;
-        const mcpServers = agent.getGlobalMcpConfig();
+            const cwd = baseOptions.options?.cwd || DEFAULT_PATH;
+            const mcpServers = agent.getGlobalMcpConfig();
 
-        const options: ClaudeAgentQueryParams['options'] = {
-            ...baseOptions.options,
-            cwd,
-            allowDangerouslySkipPermissions: true,
-        };
-        if (mcpServers) {
-            options.mcpServers = { ...mcpServers, ...baseOptions.options?.mcpServers };
+            // 处理 MCP 配置中的环境变量占位符
+            // const processedMcpServers = this.processMcpEnvVariables(mcpServers);
+
+            const options: ClaudeAgentQueryParams['options'] = {
+                ...baseOptions.options,
+                cwd,
+                allowDangerouslySkipPermissions: true,
+                env: {
+                    PATH: process.env.PATH || '',
+                    ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL || '',
+                    ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN || '',
+                    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL || '',
+                },
+            };
+            if (mcpServers) {
+                options.mcpServers = { ...mcpServers, ...baseOptions.options?.mcpServers };
+            }
+
+            return agent.query({
+                ...baseOptions,
+                options,
+            });
+        } catch (error) {
+            logger.error('Failed to query Claude Agent', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 处理 MCP 配置中的环境变量占位符
+     * 支持的占位符：
+     * - ${userData}: 用户数据目录
+     * - ${home}: 用户主目录
+     * - ${appPath}: 应用安装目录
+     */
+    private processMcpEnvVariables(mcpServers: any) {
+        if (!mcpServers) return mcpServers;
+
+        const processed = { ...mcpServers };
+        const userData = app.getPath('userData');
+        const home = app.getPath('home');
+        const appPath = app.getAppPath();
+
+        for (const [name, config] of Object.entries(processed)) {
+            if (config && typeof config === 'object') {
+                const mcpConfig: any = { ...config };
+
+                // 处理 env 中的占位符
+                if (mcpConfig.env) {
+                    mcpConfig.env = Object.entries(mcpConfig.env).reduce(
+                        (acc, [key, value]) => {
+                            if (typeof value === 'string') {
+                                acc[key] = value
+                                    .replace(/\$\{userData\}/g, userData)
+                                    .replace(/\$\{home\}/g, home)
+                                    .replace(/\$\{appPath\}/g, appPath);
+                            } else {
+                                acc[key] = value;
+                            }
+                            return acc;
+                        },
+                        {} as Record<string, any>,
+                    );
+                }
+
+                // 处理 command 中的占位符
+                if (typeof mcpConfig.command === 'string') {
+                    mcpConfig.command = mcpConfig.command
+                        .replace(/\$\{userData\}/g, userData)
+                        .replace(/\$\{home\}/g, home)
+                        .replace(/\$\{appPath\}/g, appPath);
+                }
+
+                // 处理 args 中的占位符
+                if (Array.isArray(mcpConfig.args)) {
+                    mcpConfig.args = mcpConfig.args.map((arg: any) => {
+                        if (typeof arg === 'string') {
+                            return arg
+                                .replace(/\$\{userData\}/g, userData)
+                                .replace(/\$\{home\}/g, home)
+                                .replace(/\$\{appPath\}/g, appPath);
+                        }
+                        return arg;
+                    });
+                }
+
+                processed[name] = mcpConfig;
+            }
         }
 
-        return agent.query({
-            ...baseOptions,
-            options,
-        });
+        return processed;
     }
 
     /**
