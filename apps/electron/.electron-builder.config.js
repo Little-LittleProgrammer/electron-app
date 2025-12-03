@@ -10,7 +10,7 @@ module.exports = {
         output: 'release/${version}',
         buildResources: 'build',
     },
-    files: ['layers/main/dist/**/*', 'layers/preload/dist/**/*', 'package.json'],
+    files: ['layers/main/dist/**/*', 'layers/preload/dist/**/*', 'package.json', '!layers/main/src', '!layers/preload/src', '!**/*.ts', '!**/*.map'],
     extraResources: [
         {
             from: '../web/dist',

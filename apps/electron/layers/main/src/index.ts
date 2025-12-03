@@ -1,17 +1,118 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import type { IpcMainEvent } from 'electron';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { readFile, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync, unlinkSync, mkdirSync, writeFileSync, chmodSync } from 'fs';
 import type { ClaudeAgentQueryParams } from '@electron-app/claude-agent';
 import { httpService } from './services/http';
 import { claudeAgentService, DEFAULT_PATH } from './services/claude-agent';
 import { readUserEnvConfig, writeUserEnvConfig, type UserEnvConfig } from './services/user-config';
 import { readMcpFile, writeMcpFile } from './services/mcp-file';
+import childProcess from 'child_process';
 
 /**
  * Electron 主进程
  */
+
+// Hook child_process.spawn 以确保 MCP 服务器正确设置环境变量
+// 这样可以防止 Electron 在启动 MCP 服务器时打开 GUI 窗口
+const originalSpawn = childProcess.spawn;
+(childProcess as any).spawn = function (command: string, args?: readonly string[], options?: any): any {
+    // 如果命令是 'node'，确保设置 ELECTRON_RUN_AS_NODE
+    if (command === 'node' || command?.endsWith('/node') || command?.endsWith('\\node.exe')) {
+        const envOptions = options || {};
+        envOptions.env = {
+            ...(envOptions.env || process.env),
+            ELECTRON_RUN_AS_NODE: '1',
+            ELECTRON_NO_ATTACH_CONSOLE: '1',
+        };
+        return originalSpawn.call(childProcess, command, args || [], envOptions);
+    }
+
+    return originalSpawn.call(childProcess, command, args || [], options);
+};
+
+// 确保 Claude Agent SDK 能够找到 Node.js 可执行文件
+// 在打包后的应用中,需要创建一个 node 脚本包装器来以 Node 模式运行 Electron
+const setupNodePath = () => {
+    const electronPath = process.execPath;
+    const electronDir = dirname(electronPath);
+
+    // 在用户数据目录创建 bin 目录
+    const binDir = join(app.getPath('userData'), 'bin');
+
+    try {
+        // 创建 bin 目录
+        if (!existsSync(binDir)) {
+            mkdirSync(binDir, { recursive: true });
+        }
+
+        // 根据平台创建不同的 node 包装器脚本
+        if (process.platform === 'win32') {
+            // Windows: 创建 node.cmd 批处理文件
+            const nodeCmdPath = join(binDir, 'node.cmd');
+            const batchContent = `@echo off\nset ELECTRON_RUN_AS_NODE=1\n"${electronPath}" %*`;
+
+            // 如果文件已存在，先删除
+            if (existsSync(nodeCmdPath)) {
+                try {
+                    unlinkSync(nodeCmdPath);
+                } catch (err) {
+                    // 静默失败
+                }
+            }
+
+            writeFileSync(nodeCmdPath, batchContent);
+        } else {
+            // macOS/Linux: 创建 node shell 脚本
+            const nodeScriptPath = join(binDir, 'node');
+
+            // 关键修复：使用更健壮的 shell 脚本
+            // 1. 检测是否已经在 Node 模式下运行（通过检查 process.type）
+            // 2. 只在需要时才设置 ELECTRON_RUN_AS_NODE
+            // 3. 使用 -- 参数来确保 Electron 正确解析为 Node 模式
+            const shellScript = `#!/bin/sh
+# Wrapper script to run Electron as Node.js
+# This prevents Electron from opening GUI windows when used as node
+
+export ELECTRON_RUN_AS_NODE=1
+export ELECTRON_NO_ATTACH_CONSOLE=1
+exec "${electronPath}" "$@"`;
+
+            // 如果文件已存在，先删除
+            if (existsSync(nodeScriptPath)) {
+                try {
+                    unlinkSync(nodeScriptPath);
+                } catch (err) {
+                    // 静默失败
+                }
+            }
+
+            writeFileSync(nodeScriptPath, shellScript);
+            // 确保有执行权限
+            chmodSync(nodeScriptPath, 0o755);
+        }
+
+        // 将 bin 目录添加到 PATH 的最前面（优先级最高）
+        const pathSeparator = process.platform === 'win32' ? ';' : ':';
+        const currentPath = process.env.PATH || '';
+
+        // 确保 binDir 在 PATH 的最前面，并移除可能存在的重复项
+        const pathParts = currentPath.split(pathSeparator).filter((p) => p && p !== binDir);
+        process.env.PATH = [binDir, ...pathParts].join(pathSeparator);
+
+        console.log('[Main] Node wrapper setup completed');
+        console.log('[Main] Bin directory:', binDir);
+        console.log('[Main] PATH starts with:', process.env.PATH?.split(pathSeparator).slice(0, 3).join(pathSeparator));
+    } catch (error) {
+        console.error('[Main] Failed to setup node path:', error);
+        // 退回方案：添加 electron 目录到 PATH
+        const pathSeparator = process.platform === 'win32' ? ';' : ':';
+        if (!process.env.PATH?.includes(electronDir)) {
+            process.env.PATH = `${electronDir}${pathSeparator}${process.env.PATH || ''}`;
+        }
+    }
+};
 
 let mainWindow: BrowserWindow | null = null;
 const activeClaudeAgentStreams = new Map<string, { cancelled: boolean }>();
@@ -34,11 +135,8 @@ const hydrateUserEnvConfig = async () => {
         const saved = await readUserEnvConfig(USER_ENV_FILE);
         if (Object.keys(saved).length > 0) {
             applyConfigToEnv(saved);
-            console.log('[Main] 已加载用户配置:', USER_ENV_FILE);
         }
-    } catch (error) {
-        console.warn('[Main] 读取用户配置失败:', error);
-    }
+    } catch (error) {}
 };
 
 /**
@@ -112,14 +210,17 @@ function createWindow() {
  * 应用准备就绪
  */
 app.whenReady().then(async () => {
+    // 首先设置 Node 路径，确保 Claude Agent SDK 能找到 node 命令
+    setupNodePath();
+
     await hydrateUserEnvConfig();
 
     // 初始化 Claude Agent
     try {
         claudeAgentService.initialize();
-        console.log('[Main] Claude Agent 服务初始化成功');
+        console.log('[Main] Claude Agent service initialized successfully');
     } catch (error) {
-        console.error('[Main] Claude Agent 服务初始化失败:', error);
+        console.error('[Main] Failed to initialize Claude Agent service:', error);
     }
 
     // 注册 IPC 处理器

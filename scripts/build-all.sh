@@ -38,7 +38,7 @@ echo ""
 
 # 步骤 3：打包应用
 echo "📦 步骤 3/3：打包应用..."
-pnpm compile
+pnpm dist
 if [ $? -ne 0 ]; then
     echo "❌ 应用打包失败"
     exit 1
