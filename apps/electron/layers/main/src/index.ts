@@ -20,6 +20,7 @@ import childProcess from 'child_process';
 const originalSpawn = childProcess.spawn;
 (childProcess as any).spawn = function (command: string, args?: readonly string[], options?: any): any {
     // 如果命令是 'node'，确保设置 ELECTRON_RUN_AS_NODE
+    // 并且在打包后的应用中使用 Electron 可执行文件代替 node
     if (command === 'node' || command?.endsWith('/node') || command?.endsWith('\\node.exe')) {
         const envOptions = options || {};
         envOptions.env = {
@@ -27,7 +28,19 @@ const originalSpawn = childProcess.spawn;
             ELECTRON_RUN_AS_NODE: '1',
             ELECTRON_NO_ATTACH_CONSOLE: '1',
         };
-        return originalSpawn.call(childProcess, command, args || [], envOptions);
+
+        // 在打包后的应用中，使用 Electron 可执行文件代替 node
+        // 这样可以确保即使系统没有安装 Node.js 也能工作
+        const electronPath = process.execPath;
+
+        logger.debug('Intercepted node spawn call', {
+            originalCommand: command,
+            args,
+            usingElectronPath: electronPath,
+            env: envOptions.env,
+        });
+
+        return originalSpawn.call(childProcess, electronPath, args || [], envOptions);
     }
 
     return originalSpawn.call(childProcess, command, args || [], options);
@@ -35,194 +48,123 @@ const originalSpawn = childProcess.spawn;
 
 // 确保 Claude Agent SDK 能够找到 Node.js 和 npx 可执行文件
 // 在打包后的应用中,需要创建 node 和 npx 脚本包装器来以 Node 模式运行 Electron
-const _setupNodePath = () => {
-    const electronPath = process.execPath;
-    const _electronDir = dirname(electronPath);
 
-    // 在用户数据目录创建 bin 目录
-    const binDir = join(app.getPath('userData'), 'bin');
-
+/**
+ * 创建 node 和 npx 包装器脚本
+ * 在打包后的 Electron 应用中，node 可执行文件可能不在系统的 PATH 中
+ * 我们需要创建包装器脚本来使用 Electron 以 Node 模式运行
+ */
+function createNodeWrappers() {
     try {
+        const binDir = join(app.getPath('userData'), 'bin');
+
         // 创建 bin 目录
         if (!existsSync(binDir)) {
             mkdirSync(binDir, { recursive: true });
         }
 
-        // 根据平台创建不同的 node 和 npx 包装器脚本
+        // 获取 Electron 可执行文件路径
+        const electronPath = process.execPath;
+
+        // 创建 node 包装器脚本
+        const nodeWrapperPath = join(binDir, 'node');
+        let nodeWrapperContent: string;
+
         if (process.platform === 'win32') {
-            // Windows: 创建 node.cmd 和 npx.cmd 批处理文件
-            const nodeCmdPath = join(binDir, 'node.cmd');
-            const npxCmdPath = join(binDir, 'npx.cmd');
-
-            const nodeBatchContent = `@echo off\nset ELECTRON_RUN_AS_NODE=1\nset ELECTRON_NO_ATTACH_CONSOLE=1\n"${electronPath}" %*`;
-
-            // npx 需要调用系统的 npx，但使用我们的 node
-            // 尝试多个可能的 npx 位置
-            const npxBatchContent = `@echo off
+            // Windows 批处理脚本
+            nodeWrapperContent = `@echo off
 set ELECTRON_RUN_AS_NODE=1
 set ELECTRON_NO_ATTACH_CONSOLE=1
-
-REM 尝试查找系统的 npx
-where npx.cmd >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    for /f "delims=" %%i in ('where npx.cmd') do (
-        if not "%%i"=="%~f0" (
-            "%%i" %*
-            exit /b %ERRORLEVEL%
-        )
-    )
-)
-
-REM 如果找不到系统 npx，尝试使用 npm 的 npx
-if exist "%APPDATA%\\npm\\node_modules\\npm\\bin\\npx-cli.js" (
-    "${electronPath}" "%APPDATA%\\npm\\node_modules\\npm\\bin\\npx-cli.js" %*
-    exit /b %ERRORLEVEL%
-)
-
-echo npx not found. Please install Node.js globally. >&2
-exit /b 1`;
-
-            // 如果文件已存在，先删除
-            if (existsSync(nodeCmdPath)) {
-                try {
-                    unlinkSync(nodeCmdPath);
-                } catch (_err) {
-                    // 静默失败
-                }
-            }
-            if (existsSync(npxCmdPath)) {
-                try {
-                    unlinkSync(npxCmdPath);
-                } catch (_err) {
-                    // 静默失败
-                }
-            }
-
-            writeFileSync(nodeCmdPath, nodeBatchContent);
-            writeFileSync(npxCmdPath, npxBatchContent);
-
-            logger.info('Created Windows wrappers', { nodeCmdPath, npxCmdPath });
+"${electronPath}" %*`;
+            writeFileSync(nodeWrapperPath + '.bat', nodeWrapperContent);
+            // 同时创建 .cmd 版本
+            writeFileSync(nodeWrapperPath + '.cmd', nodeWrapperContent);
         } else {
-            // macOS/Linux: 创建 node 和 npx shell 脚本
-            const nodeScriptPath = join(binDir, 'node');
-            const npxScriptPath = join(binDir, 'npx');
-            const npmScriptPath = join(binDir, 'npm');
-
-            const nodeShellScript = `#!/bin/sh
-# Wrapper script to run Electron as Node.js
-# This prevents Electron from opening GUI windows when used as node
-
+            // Unix shell 脚本
+            nodeWrapperContent = `#!/bin/sh
 export ELECTRON_RUN_AS_NODE=1
 export ELECTRON_NO_ATTACH_CONSOLE=1
-exec "${electronPath}" "$@"`;
+"${electronPath}" "$@"`;
+            writeFileSync(nodeWrapperPath, nodeWrapperContent);
+            chmodSync(nodeWrapperPath, 0o755); // 添加执行权限
+        }
 
-            // npx 包装器：查找系统的 npx 并使用它
-            const npxShellScript = `#!/bin/sh
-# Wrapper script for npx
-# This ensures npx uses our custom node wrapper
+        // 创建 npx 包装器脚本
+        // 健壮的 npx 包装器，可以处理系统没有安装 npx 的情况
+        const npxWrapperPath = join(binDir, 'npx');
+        let npxWrapperContent: string;
 
-export ELECTRON_RUN_AS_NODE=1
-export ELECTRON_NO_ATTACH_CONSOLE=1
+        if (process.platform === 'win32') {
+            // Windows 批处理脚本
+            npxWrapperContent = `@echo off
+setlocal enabledelayedexpansion
 
-# 尝试查找系统的 npx（排除当前脚本自身）
-SYSTEM_NPX=""
-for npx_path in /usr/local/bin/npx /usr/bin/npx /opt/homebrew/bin/npx ~/.nvm/versions/node/*/bin/npx; do
-    if [ -f "$npx_path" ] && [ "$npx_path" != "$0" ]; then
-        SYSTEM_NPX="$npx_path"
-        break
-    fi
-done
+:: 首先尝试直接调用 npx.cmd
+where npx.cmd >nul 2>nul
+if !errorlevel! equ 0 (
+    npx.cmd %*
+    exit /b !errorlevel!
+)
 
-# 如果找到系统 npx，使用它
-if [ -n "$SYSTEM_NPX" ]; then
-    exec "$SYSTEM_NPX" "$@"
-fi
+:: 如果 npx.cmd 不存在，尝试使用 npm exec
+where npm.cmd >nul 2>nul
+if !errorlevel! equ 0 (
+    npm.cmd exec %*
+    exit /b !errorlevel!
+)
 
-# 如果没找到，尝试使用 npm 自带的 npx
-if [ -f ~/.npm/_npx/*/node_modules/.bin/npx ]; then
-    exec ~/.npm/_npx/*/node_modules/.bin/npx "$@"
-fi
+:: 如果都没有，显示错误信息
+echo Error: Neither npx nor npm found in PATH.
+echo Please install Node.js or ensure it's in your PATH.
+exit /b 1`;
+            writeFileSync(npxWrapperPath + '.bat', npxWrapperContent);
+            writeFileSync(npxWrapperPath + '.cmd', npxWrapperContent);
+        } else {
+            // Unix shell 脚本
+            npxWrapperContent = `#!/bin/sh
 
-# 最后尝试直接调用 npx（依赖 PATH）
+# 首先尝试直接调用 npx
 if command -v npx >/dev/null 2>&1; then
-    REAL_NPX=$(command -v npx)
-    if [ "$REAL_NPX" != "$0" ]; then
-        exec "$REAL_NPX" "$@"
-    fi
+    exec npx "$@"
 fi
 
-echo "npx not found. Please install Node.js globally." >&2
+# 如果 npx 不存在，尝试使用 npm exec
+if command -v npm >/dev/null 2>&1; then
+    exec npm exec "$@"
+fi
+
+# 如果都没有，显示错误信息
+echo "Error: Neither npx nor npm found in PATH."
+echo "Please install Node.js or ensure it's in your PATH."
 exit 1`;
-
-            const npmShellScript = `#!/bin/sh
-# Wrapper script for npm
-# This ensures npm uses our custom node wrapper
-
-export ELECTRON_RUN_AS_NODE=1
-export ELECTRON_NO_ATTACH_CONSOLE=1
-exec "${electronPath}" "$@"`;
-
-            // 如果文件已存在，先删除
-            if (existsSync(nodeScriptPath)) {
-                try {
-                    unlinkSync(nodeScriptPath);
-                } catch (_err) {
-                    // 静默失败
-                }
-            }
-            if (existsSync(npxScriptPath)) {
-                try {
-                    unlinkSync(npxScriptPath);
-                } catch (_err) {
-                    // 静默失败
-                }
-            }
-            if (existsSync(npmScriptPath)) {
-                try {
-                    unlinkSync(npmScriptPath);
-                } catch (_err) {
-                    // 静默失败
-                }
-            }
-
-            writeFileSync(nodeScriptPath, nodeShellScript);
-            writeFileSync(npxScriptPath, npxShellScript);
-            writeFileSync(npmScriptPath, npmShellScript);
-            // 确保有执行权限
-            chmodSync(nodeScriptPath, 0o755);
-            chmodSync(npxScriptPath, 0o755);
-
-            logger.info('Created Unix wrappers', { nodeScriptPath, npxScriptPath });
+            writeFileSync(npxWrapperPath, npxWrapperContent);
+            chmodSync(npxWrapperPath, 0o755); // 添加执行权限
         }
 
-        // 将 bin 目录添加到 PATH 的最前面（优先级最高）
+        // 将 bin 目录添加到 PATH 环境变量的开头
         const pathSeparator = process.platform === 'win32' ? ';' : ':';
-        const currentPath = process.env.PATH || '';
+        process.env.PATH = `${binDir}${pathSeparator}${process.env.PATH || ''}`;
 
-        // 确保 binDir 在 PATH 的最前面，并移除可能存在的重复项
-        const pathParts = currentPath.split(pathSeparator).filter((p) => p && p !== binDir);
-        process.env.PATH = [binDir, ...pathParts].join(pathSeparator);
+        logger.info('Node and npx wrappers setup completed', {
+            binDir,
+            electronPath,
+            nodeWrapperPath: process.platform === 'win32' ? `${nodeWrapperPath}.bat` : nodeWrapperPath,
+            npxWrapperPath: process.platform === 'win32' ? `${npxWrapperPath}.bat` : npxWrapperPath,
+            pathPrefix: `${binDir}${pathSeparator}...`,
+        });
 
-        logger.info('Node and npx wrappers setup completed');
-        logger.info('Bin directory', { binDir });
-        logger.info('PATH starts with', { pathStart: process.env.PATH?.split(pathSeparator).slice(0, 3).join(pathSeparator) });
+        return binDir;
     } catch (error) {
-        logger.error('Failed to setup node path', error);
-        // 退回方案：添加 electron 目录到 PATH
-        const pathSeparator = process.platform === 'win32' ? ';' : ':';
-        const electronDir = dirname(electronPath);
-        if (!process.env.PATH?.includes(electronDir)) {
-            process.env.PATH = `${electronDir}${pathSeparator}${process.env.PATH || ''}`;
-        }
+        logger.error('Failed to create node wrappers', error);
+        throw error;
     }
-};
+}
 
 let mainWindow: BrowserWindow | null = null;
 const activeClaudeAgentStreams = new Map<string, { cancelled: boolean }>();
 const USER_ENV_FILE = join(DEFAULT_PATH, '.env.json');
 
 const applyConfigToEnv = (config: UserEnvConfig) => {
-    process.env.DEBUG = '1';
     if (config.baseURL) {
         process.env.ANTHROPIC_BASE_URL = config.baseURL;
     }
@@ -341,6 +283,13 @@ app.whenReady().then(async () => {
         logger.info('Claude Agent service initialized successfully');
     } catch (error) {
         logger.error('Failed to initialize Claude Agent service', error);
+    }
+
+    // 创建 node 和 npx 包装器
+    try {
+        createNodeWrappers();
+    } catch (error) {
+        logger.error('Failed to create node wrappers', error);
     }
 
     // 注册 IPC 处理器

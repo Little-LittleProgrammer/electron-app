@@ -54,22 +54,30 @@ class ClaudeAgentService {
             const mcpServers = agent.getGlobalMcpConfig();
 
             // 处理 MCP 配置中的环境变量占位符
-            // const processedMcpServers = this.processMcpEnvVariables(mcpServers);
+            const processedMcpServers = this.processMcpEnvVariables(mcpServers);
 
             const options: ClaudeAgentQueryParams['options'] = {
                 ...baseOptions.options,
                 cwd,
                 allowDangerouslySkipPermissions: true,
                 env: {
+                    // 复制当前进程的所有环境变量
+                    ...process.env,
+                    // 确保 PATH 包含我们的 bin 目录
                     PATH: process.env.PATH || '',
+                    // Anthropic 相关环境变量
                     ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL || '',
                     ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN || '',
                     ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL || '',
+                    // 确保 Electron 以 Node 模式运行
+                    ELECTRON_RUN_AS_NODE: '1',
+                    ELECTRON_NO_ATTACH_CONSOLE: '1',
                 },
             };
             if (mcpServers) {
-                options.mcpServers = { ...mcpServers, ...baseOptions.options?.mcpServers };
+                options.mcpServers = { ...processedMcpServers, ...baseOptions.options?.mcpServers };
             }
+            logger.info('Processed MCP servers', options.mcpServers);
 
             return agent.query({
                 ...baseOptions,

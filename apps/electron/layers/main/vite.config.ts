@@ -14,7 +14,7 @@ export default defineConfig({
             fileName: () => 'index.cjs',
         },
         rollupOptions: {
-            external: ['@electron-app/claude-agent', '@anthropic-ai/claude-agent-sdk', 'electron', ...nodeBuiltins],
+            external: ['@electron-app/claude-agent', '@anthropic-ai/claude-agent-sdk', 'minimax-mcp-js', 'electron', ...nodeBuiltins],
         },
         emptyOutDir: true,
         sourcemap: false,

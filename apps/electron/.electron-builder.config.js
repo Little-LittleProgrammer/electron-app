@@ -19,7 +19,7 @@ module.exports = {
     ],
     // 确保 asar 打包正常工作
     asar: true,
-    asarUnpack: [],
+    asarUnpack: ['minimax-mcp-js/**'],
     mac: {
         target: ['dmg', 'zip'],
         category: 'public.app-category.utilities',
