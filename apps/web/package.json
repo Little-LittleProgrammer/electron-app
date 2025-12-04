@@ -11,12 +11,14 @@
     "dependencies": {
         "@electron-app/shared": "workspace:*",
         "@quantum-design/styles": "catalog:",
+        "highlight.js": "catalog:",
         "pinia": "catalog:",
         "vue": "catalog:",
         "vue-router": "catalog:"
     },
     "devDependencies": {
         "@vitejs/plugin-vue": "catalog:",
+        "markdown-it": "catalog:",
         "sass": "catalog:",
         "typescript": "catalog:",
         "vite": "catalog:"

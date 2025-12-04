@@ -93,16 +93,21 @@
                                         </div>
                                         <span class="text-xs text-gray-400">{{ entry.timestamp }}</span>
                                     </summary>
-                                    <div class="mt-3 space-y-3">
-                                        <div>
-                                            <div class="text-xs font-semibold uppercase text-gray-500">请求参数</div>
-                                            <pre class="mt-1 overflow-x-auto rounded bg-gray-50 p-3 text-xs text-gray-700">{{ entry.content }}</pre>
+                                    <template v-if="typeof entry.content === 'object' && entry.content?.todos">
+                                        <todo-list :todos="entry.content.todos" />
+                                    </template>
+                                    <template v-else>
+                                        <div class="mt-3 space-y-3">
+                                            <div>
+                                                <div class="text-xs font-semibold uppercase text-gray-500">请求参数</div>
+                                                <pre class="mt-1 overflow-x-auto rounded bg-gray-50 p-3 text-xs text-gray-700">{{ entry.content }}</pre>
+                                            </div>
+                                            <div v-if="entry.toolResult">
+                                                <div class="text-xs font-semibold uppercase text-gray-500">调用结果</div>
+                                                <pre class="mt-1 overflow-x-auto rounded bg-green-50 p-3 text-xs text-gray-800">{{ entry.toolResult }}</pre>
+                                            </div>
                                         </div>
-                                        <div v-if="entry.toolResult">
-                                            <div class="text-xs font-semibold uppercase text-gray-500">调用结果</div>
-                                            <pre class="mt-1 overflow-x-auto rounded bg-green-50 p-3 text-xs text-gray-800">{{ entry.toolResult }}</pre>
-                                        </div>
-                                    </div>
+                                    </template>
                                 </details>
 
                                 <details v-else-if="entry.type === 'system'" class="group rounded-lg border border-blue-200 bg-white p-4 text-sm text-gray-700 shadow-sm transition hover:border-blue-300">
@@ -123,7 +128,7 @@
                                         <span>{{ entry.title }}</span>
                                         <span>{{ entry.timestamp }}</span>
                                     </div>
-                                    <p class="whitespace-pre-wrap">{{ entry.content }}</p>
+                                    <div class="markdown-content" v-html="md.render(entry.content)"></div>
                                 </div>
                             </div>
                         </template>
@@ -176,7 +181,64 @@
 <script setup lang="ts">
 import { ref, nextTick, computed, onMounted } from 'vue';
 import AgentConfigPanel from '@/components/AgentConfigPanel.vue';
+import TodoList from '@/components/TodoList.vue';
 import type { AgentConfig, PanelSystemEvent } from '@/types/agent';
+import type { TodoItem as TodoItemType } from '@/components/TodoList.vue';
+import MarkdownIt from 'markdown-it';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
+
+interface TodoItem {
+    id: string;
+    content: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+}
+
+const createExpandableCodeBlock = (codeContent: string, language?: string) => {
+    const lines = codeContent.split('\n').length;
+    const shouldCollapse = lines > 10; // 超过10行自动折叠
+
+    const languageLabel = language ? `<span class="code-language">${language}</span>` : '';
+    const lineCountLabel = `<span class="code-line-count">${lines} 行</span>`;
+
+    return `
+        <div class="code-block-wrapper ${shouldCollapse ? 'collapsed' : ''}">
+            <div class="code-header">
+                ${languageLabel}
+                ${lineCountLabel}
+                <button class="code-expand-btn" onclick="this.closest('.code-block-wrapper').classList.toggle('collapsed')">
+                    <svg class="expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="code-content">
+                ${codeContent}
+            </div>
+        </div>
+    `;
+};
+
+const md = new MarkdownIt({
+    html: true,
+    linkify: true,
+    typographer: true,
+    highlight: function (str: string, lang: string) {
+        let highlightedCode = '';
+
+        if (lang && hljs.getLanguage(lang)) {
+            try {
+                highlightedCode = hljs.highlight(str, { language: lang, ignoreIllegals: true }).value;
+            } catch (__) {
+                highlightedCode = md.utils.escapeHtml(str);
+            }
+        } else {
+            highlightedCode = md.utils.escapeHtml(str);
+        }
+
+        return createExpandableCodeBlock(highlightedCode, lang);
+    },
+});
 
 type AgentEventType = 'user' | 'assistant' | 'system' | 'thinking' | 'tool_call' | 'tool_result' | 'result';
 
@@ -369,6 +431,8 @@ const appendAssistantText = (text: string) => {
     assistantMessageActive = true;
 };
 
+const useTodos = ref<boolean>(false);
+
 const handleAssistantMessage = (payload: any) => {
     const contentList: any[] = payload?.message?.content ?? [];
     contentList.forEach((item) => {
@@ -376,11 +440,42 @@ const handleAssistantMessage = (payload: any) => {
             addEventEntry('thinking', '思考过程', item.thinking || '（空）', { raw: item });
         } else if (item.type === 'tool_use') {
             const toolUseId = item.id || item.tool_use_id;
-            addEventEntry('tool_call', '工具调用', safeStringify(item.input ?? {}), {
-                subtitle: item.name ? `工具：${item.name}` : undefined,
-                raw: item,
-                metadata: toolUseId ? { toolUseId } : undefined,
-            });
+            if (item.name === 'TodoWrite') {
+                if (!useTodos.value) {
+                    useTodos.value = true;
+                    console.log('增加待办事项', toolUseId);
+                    addEventEntry('tool_call', '工具调用', item.input, {
+                        subtitle: item.name ? `工具：${item.name}` : undefined,
+                        raw: item,
+                        metadata: toolUseId ? { toolUseId } : undefined,
+                    });
+                } else {
+                    const target = [...timeline.value].reverse().find((event) => event.subtitle === '工具：TodoWrite');
+                    if (target && item.input.todos && typeof item.input.todos === 'object') {
+                        target.content = item.input;
+                        target.timestamp = formatTimestamp();
+                        target.raw = safeStringify(item);
+                    }
+                    // const length = item.input.todos.length;
+                    // for (let i = length - 1; i >= 0; i--) {
+                    //     const todo = item.input.todos[i];
+                    //     if (todo.status == 'completed') {
+                    //         addEventEntry('tool_call', '工具调用', `to-do 开始 ${todo.content}`, {
+                    //             subtitle: item.name ? `工具：${item.name}` : undefined,
+                    //             raw: item,
+                    //             metadata: toolUseId ? { toolUseId } : undefined,
+                    //         });
+                    //         break;
+                    //     }
+                    // }
+                }
+            } else {
+                addEventEntry('tool_call', '工具调用', safeStringify(item.input ?? {}), {
+                    subtitle: item.name ? `工具：${item.name}` : undefined,
+                    raw: item,
+                    metadata: toolUseId ? { toolUseId } : undefined,
+                });
+            }
         } else if (item.type === 'text') {
             appendAssistantText(item.text || '');
         }
@@ -391,18 +486,21 @@ const handleUserEvent = (payload: any) => {
     const contentList: any[] = payload?.message?.content ?? [];
     contentList.forEach((item) => {
         if (item.type === 'tool_result') {
-            const toolContent = typeof item.content === 'string' ? item.content : safeStringify(item.content ?? {});
-            const toolUseId = item.tool_use_id;
-            if (toolUseId) {
-                const target = [...timeline.value].reverse().find((event) => event.metadata?.toolUseId === toolUseId);
-                if (target) {
-                    target.toolResult = toolContent;
-                    target.timestamp = formatTimestamp();
-                    target.raw = safeStringify(item);
-                    return;
+            if (item.content.startsWith('Todos')) {
+            } else {
+                const toolContent = typeof item.content === 'string' ? item.content : safeStringify(item.content ?? {});
+                const toolUseId = item.tool_use_id;
+                if (toolUseId) {
+                    const target = [...timeline.value].reverse().find((event) => event.metadata?.toolUseId === toolUseId);
+                    if (target) {
+                        target.toolResult = toolContent;
+                        target.timestamp = formatTimestamp();
+                        target.raw = safeStringify(item);
+                        return;
+                    }
                 }
+                addEventEntry('tool_result', '工具返回', toolContent, { raw: item });
             }
-            addEventEntry('tool_result', '工具返回', toolContent, { raw: item });
         } else if (item.type === 'text' && item.text) {
             addEventEntry('user', '用户反馈', item.text, { raw: item });
         }
@@ -412,6 +510,7 @@ const handleUserEvent = (payload: any) => {
 const handleResultEvent = (payload: any) => {
     const resultText = typeof payload?.result === 'string' ? payload.result : safeStringify(payload?.result ?? {});
     addEventEntry('result', '最终结果', resultText, { raw: payload });
+    useTodos.value = false;
     if (!assistantMessageActive && resultText) {
         addMessage('assistant', resultText);
     }
@@ -563,5 +662,321 @@ const showSubAgents = async () => {
 
 .floating-settings-btn svg {
     color: #4338ca;
+}
+
+/* Markdown 内容样式 */
+:deep(.markdown-content) {
+    color: #374151;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+:deep(.markdown-content h1) {
+    font-size: 1.25rem;
+    font-weight: 700;
+    padding-bottom: 0.375rem;
+    border-bottom: 1px solid #e5e7eb;
+    color: #111827;
+}
+
+:deep(.markdown-content h2) {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+:deep(.markdown-content h3) {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+:deep(.markdown-content p) {
+}
+
+:deep(.markdown-content a) {
+    color: #3b82f6;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+    font-size: 0.875rem;
+}
+
+:deep(.markdown-content a:hover) {
+    border-bottom-color: #3b82f6;
+}
+
+:deep(.markdown-content ul),
+:deep(.markdown-content ol) {
+    padding-left: 1.25rem;
+}
+
+:deep(.markdown-content li) {
+    font-size: 0.875rem;
+}
+
+:deep(.markdown-content blockquote) {
+    border-left: 3px solid #e5e7eb;
+    padding-left: 0.75rem;
+    color: #6b7280;
+    font-style: italic;
+    font-size: 0.875rem;
+}
+
+:deep(.markdown-content code) {
+    background-color: #f3f4f6;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.1875rem;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.8125em;
+    color: #dc2626;
+    white-space: pre-line;
+}
+
+:deep(.markdown-content pre) {
+    background-color: #1e293b;
+    border-radius: 0.375rem;
+    padding: 0 0.75rem;
+    overflow-x: auto;
+}
+
+:deep(.markdown-content pre code) {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    color: #e2e8f0;
+    line-height: 1;
+}
+
+:deep(.markdown-content table) {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+:deep(.markdown-content th) {
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.8125rem;
+}
+
+:deep(.markdown-content td) {
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem;
+    font-size: 0.8125rem;
+}
+
+:deep(.markdown-content tr:nth-child(even)) {
+    background-color: #f9fafb;
+}
+
+:deep(.markdown-content img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.25rem;
+}
+
+:deep(.markdown-content hr) {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* 代码高亮样式 */
+:deep(.hljs) {
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+:deep(.hljs-comment),
+:deep(.hljs-quote) {
+    color: #94a3b8;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-keyword),
+:deep(.hljs-selector-tag),
+:deep(.hljs-subst) {
+    color: #f472b6;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-number),
+:deep(.hljs-literal),
+:deep(.hljs-variable),
+:deep(.hljs-template-variable),
+:deep(.hljs-tag .hljs-attr) {
+    color: #60a5fa;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-string),
+:deep(.hljs-doctag) {
+    color: #34d399;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-title),
+:deep(.hljs-section),
+:deep(.hljs-selector-id) {
+    color: #f59e0b;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-subst) {
+    font-weight: normal;
+}
+
+:deep(.hljs-type),
+:deep(.hljs-class .hljs-title) {
+    color: #8b5cf6;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-tag),
+:deep(.hljs-name),
+:deep(.hljs-attribute) {
+    color: #3b82f6;
+    font-weight: normal;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-regexp),
+:deep(.hljs-link) {
+    color: #10b981;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-symbol),
+:deep(.hljs-bullet) {
+    color: #f87171;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-built_in),
+:deep(.hljs-builtin-name) {
+    color: #fbbf24;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-meta) {
+    color: #64748b;
+    font-size: 0.8125rem;
+}
+
+:deep(.hljs-deletion) {
+    background: #fef2f2;
+}
+
+:deep(.hljs-addition) {
+    background: #f0fdf4;
+}
+
+:deep(.hljs-emphasis) {
+    font-style: italic;
+}
+
+:deep(.hljs-strong) {
+    font-weight: bold;
+}
+
+/* 代码块展开收起样式 */
+:deep(.code-block-wrapper) {
+    background-color: #1e293b;
+    border-radius: 0.375rem;
+    overflow: hidden;
+    border: 1px solid #374151;
+}
+
+:deep(.code-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background-color: #0f172a;
+    border-bottom: 1px solid #374151;
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+:deep(.code-language) {
+    background-color: #3b82f6;
+    color: white;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.125rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+:deep(.code-line-count) {
+    margin-left: auto;
+    margin-right: 0.75rem;
+    color: #cbd5e1;
+}
+
+:deep(.code-expand-btn) {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.125rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+:deep(.code-expand-btn:hover) {
+    background-color: #374151;
+    color: #e2e8f0;
+}
+
+:deep(.expand-icon) {
+    width: 1rem;
+    height: 1rem;
+    transition: transform 0.2s;
+}
+
+:deep(.code-block-wrapper.collapsed .expand-icon) {
+    transform: rotate(-90deg);
+}
+
+:deep(.code-content) {
+    max-height: 400px;
+    overflow-y: auto;
+    transition: max-height 0.3s ease;
+}
+
+:deep(.code-block-wrapper.collapsed .code-content) {
+    max-height: 0;
+    overflow: hidden;
+}
+
+:deep(.code-content pre) {
+    background-color: transparent;
+    border-radius: 0;
+    padding: 0.75rem;
+    margin: 0;
+    overflow-x: auto;
+}
+
+:deep(.code-content pre code) {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    color: #e2e8f0;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    display: block;
+}
+
+/* 确保代码高亮样式在代码块中正常工作 */
+:deep(.code-content .hljs) {
+    background: transparent !important;
+    padding: 0 !important;
 }
 </style>

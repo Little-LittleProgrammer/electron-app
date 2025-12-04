@@ -157,7 +157,8 @@ catalog:
 
     # ==================== 文档 ====================
     vitepress: ^1.6.4
-    markdown-it: ^15.1.1
+    markdown-it: ^14.1.0
+    highlight.js: ^11.11.1
 
     # ==================== Monorepo 管理 ====================
     '@changesets/cli': ^2.29.5
