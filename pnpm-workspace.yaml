@@ -127,7 +127,6 @@ catalog:
     echarts: ^5.4.2
     monaco-editor: ^0.52.2
     tinymce: ^5.10.9
-    highlight.js: ^11.4.0
     sortablejs: ^1.15.0
     moveable: ^0.51.0
     element-resize-detector: 1.2.4

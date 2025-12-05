@@ -486,7 +486,7 @@ const handleUserEvent = (payload: any) => {
     const contentList: any[] = payload?.message?.content ?? [];
     contentList.forEach((item) => {
         if (item.type === 'tool_result') {
-            if (item.content.startsWith('Todos')) {
+            if (item.content?.startsWith?.('Todos')) {
             } else {
                 const toolContent = typeof item.content === 'string' ? item.content : safeStringify(item.content ?? {});
                 const toolUseId = item.tool_use_id;
@@ -514,6 +514,10 @@ const handleResultEvent = (payload: any) => {
     if (!assistantMessageActive && resultText) {
         addMessage('assistant', resultText);
     }
+    new Notification('AI Agent 完成', {
+        body: resultText,
+        icon: '/favicon.ico',
+    });
     resetAssistantStreamState();
 };
 
