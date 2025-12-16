@@ -192,6 +192,7 @@ const hydrateUserEnvConfig = async () => {
  * 创建主窗口
  */
 function createWindow() {
+    console.log('[Main] createWindow', app.getVersion());
     // 设置 preload 路径
     let preloadPath: string;
     if (process.env.NODE_ENV === 'development') {

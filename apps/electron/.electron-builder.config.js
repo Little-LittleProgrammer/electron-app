@@ -26,7 +26,7 @@ module.exports = {
         artifactName: '${productName}-${version}-mac-${arch}.${ext}',
     },
     win: {
-        target: ['nsis', 'zip'],
+        target: [{ target: 'nsis', arch: ['x64'] }, 'zip'],
         artifactName: '${productName}-${version}-win-${arch}.${ext}',
     },
     linux: {

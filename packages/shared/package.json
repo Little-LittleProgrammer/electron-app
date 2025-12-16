@@ -19,7 +19,6 @@
     },
     "devDependencies": {
         "@quantum-design-configs/rollup": "catalog:",
-        "@quantum-design-configs/tsconfig": "catalog:",
         "rollup": "catalog:"
     }
 }
