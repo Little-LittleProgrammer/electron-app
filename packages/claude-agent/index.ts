@@ -13,6 +13,7 @@ export class ClaudeAgent {
     globalMcpConfig: GlobalMcpConfig;
     globalSubAgents: GlobalSubAgents;
     globalCommands: GlobalAgentCommands;
+    systemPrompt: string;
 
     constructor(aiBaseOptions: IAnthropicBaseOptions) {
         this.aiBaseOptions = aiBaseOptions;
@@ -20,6 +21,7 @@ export class ClaudeAgent {
         this.globalMcpConfig = new GlobalMcpConfig(this.basePath);
         this.globalSubAgents = new GlobalSubAgents(this.basePath);
         this.globalCommands = new GlobalAgentCommands(this.basePath);
+        this.systemPrompt = aiBaseOptions.systemPrompt;
         this.init();
     }
 
@@ -36,10 +38,18 @@ export class ClaudeAgent {
         if (typeof promptOrOptions === 'string') {
             return query({
                 prompt: promptOrOptions,
+                options: {
+                    systemPrompt: this.systemPrompt,
+                },
             });
         }
-
-        return query(promptOrOptions);
+        return query({
+            ...promptOrOptions,
+            options: {
+                systemPrompt: this.systemPrompt,
+                ...(promptOrOptions.options || {}),
+            },
+        });
     }
 
     getGlobalMcpConfig(name?: string): McpServerConfig | Record<string, McpServerConfig> | null {
